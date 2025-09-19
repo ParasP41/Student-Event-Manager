@@ -1,0 +1,27 @@
+{
+  "name": "student-event-manager",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+     "dev": "nodemon -r dotenv/config --experimental-json-modules src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ParasP41/Student-Event-Manager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ParasP41/Student-Event-Manager/issues"
+  },
+  "homepage": "https://github.com/ParasP41/Student-Event-Manager#readme",
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "mongoose": "^8.18.1",
+    "prettier": "^3.6.2"
+  }
+}
