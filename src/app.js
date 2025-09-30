@@ -13,6 +13,10 @@ app.use(cors({
 }))
 
 
+//Auth Route
+import { authRouter } from './routes/auth.Route.js';
+app.use('', authRouter);
+
 
 
 export { app };
