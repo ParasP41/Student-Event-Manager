@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import { ApiError } from "../utils/APIError.js";
 import { ApiResponse } from "../utils/APIResponce.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { uploadOnCloudinary } from "../utils/Cloudinary.js";
+
 
 const options = {
     httpOnly: true,
@@ -121,5 +123,56 @@ const handlerLogOut = asyncHandler(async (req, res) => {
         );
 });
 
+const handlerUpdateProfile = asyncHandler(async (req, res) => {
+    const { firstName, lastName, userName, email, password } = req.body;
 
-export { handlerSignUp, handlerLogin, handlerLogOut };
+    if (!firstName || !lastName || !userName || !email) {
+        throw new ApiError(400, "REQUIRED FIELD IS MISSING ( firstName, lastName, username, email )");
+    }
+
+    const currentLoggedInUser = req.user;
+    const user = await Auth.findById(currentLoggedInUser._id);
+    if (!user) {
+        throw new ApiError(404, "USER NOT FOUND");
+    }
+
+    if (password) {
+        const isPasswordMatch = await bcrypt.compare(password, user.password);
+        if (!isPasswordMatch) {
+            throw new ApiError(401, "INVALID PASSWORD");
+        }
+    }
+
+    let pictureUrl = user.picture;
+    if (req.file && req.file.path) {
+        const picture = await uploadOnCloudinary(req.file.path);
+        if (!picture) {
+            throw new ApiError(400, "CLOUDINARY UPLOAD FAILED");
+        }
+        pictureUrl = picture.url;
+    }
+
+    const updatedUser = await Auth.findByIdAndUpdate(
+        currentLoggedInUser._id,
+        {
+            firstName,
+            lastName,
+            email,
+            userName,
+            picture: pictureUrl,
+        },
+        { new: true, runValidators: true }
+    ).select("-password");
+
+    return res.status(200).json(
+        new ApiResponse(200, updatedUser, "USER PROFILE UPDATED")
+    );
+});
+
+
+export {
+    handlerSignUp,
+    handlerLogin,
+    handlerLogOut,
+    handlerUpdateProfile
+};

@@ -34,7 +34,8 @@ const authSchema = new mongoose.Schema(
         },
         password: {
             type: String,
-            trim: true
+            trim: true,
+            required: true,
         },
     },
     { timestamps: true }
