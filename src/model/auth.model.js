@@ -36,18 +36,6 @@ const authSchema = new mongoose.Schema(
             type: String,
             trim: true
         },
-        // role: {
-        //     type: String,
-        //     default: "User"
-        // },
-        // verifiedEmail: {
-        //     type: Boolean,
-        //     default: false,
-        // },
-        // locale: {
-        //     type: String,
-        //     default: "en",
-        // },
     },
     { timestamps: true }
 );
