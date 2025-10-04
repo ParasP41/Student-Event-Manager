@@ -5,7 +5,7 @@ import { ApiError } from "../utils/APIError.js";
 import { ApiResponse } from "../utils/APIResponce.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
-
+import axios from "axios";
 
 const options = {
     httpOnly: true,
@@ -13,61 +13,62 @@ const options = {
 };
 
 const handlerSignUp = asyncHandler(async (req, res) => {
-    const { firstName, lastName, userName, email, password, confirm_password } = req.body;
+  const { firstName, lastName, userName, email, password, confirm_password, phoneNumber } = req.body;
 
-    // 1. Check required fields
-    if (!firstName || !lastName || !userName || !email || !password || !confirm_password) {
-        throw new ApiError(400, "All fields are required");
-    }
+  // 1️⃣ Validate all fields
+  if (!firstName || !lastName || !userName || !email || !password || !confirm_password || !phoneNumber) {
+    throw new ApiError(400, "All fields are required");
+  }
 
-    // 2. Check confirm password
-    if (confirm_password !== password) {
-        throw new ApiError(400, "Passwords do not match");
-    }
+  // 2️⃣ Validate phone number with Numverify API
+//   const response = await axios.get(
+//     `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
+//   );
+//   const data = response.data;
 
-    // 3. Check if user already exists
-    const existingUser = await Auth.findOne({
-        $or: [{ userName }, { email }],
-    });
+//   if (!data.valid || data.line_type !== "mobile") {
+//     throw new ApiError(400, "Enter a valid mobile number");
+//   }
 
-    if (existingUser) {
-        throw new ApiError(400, "User already exists");
-    }
+  // 3️⃣ Check passwords match
+  if (confirm_password !== password) {
+    throw new ApiError(400, "Passwords do not match");
+  }
 
-    // 4. Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+  // 4️⃣ Check if user already exists
+  const existingUser = await Auth.findOne({
+    $or: [{ userName }, { email }],
+  });
+  if (existingUser) {
+    throw new ApiError(400, "User already exists");
+  }
 
-    // 5. Create new user
-    const user = await Auth.create({
-        firstName,
-        lastName,
-        userName,
-        email,
-        password: hashedPassword,
-    });
+  // 5️⃣ Hash password
+  const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 6. Fetch user without password
-    const createdUser = await Auth.findById(user._id).select("-password");
+  // 6️⃣ Create user
+  const user = await Auth.create({
+    firstName,
+    lastName,
+    userName,
+    email,
+    phoneNumber,
+    password: hashedPassword,
+  });
 
-    // 7. Create JWT token
-    const token = await jwt.sign(
-        {
-            _id: user._id,
-            email: user.email,
-            username: user.userName,
-        },
-        process.env.ACCESS_TOKEN_SECRET,
-        {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
-        }
-    );
+  // 7️⃣ Generate JWT token
+  const token = jwt.sign(
+    { _id: user._id, email: user.email, username: user.userName },
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
+  );
 
-    // 8. Send response
-    return res
-        .status(201)
-        .cookie("token", token, options)
-        .json(new ApiResponse(201, createdUser, "User registered successfully"));
+  // 8️⃣ Send response
+  const createdUser = await Auth.findById(user._id).select("-password");
+  return res
+    .status(201)
+    .cookie("token", token, options)
+    .json(new ApiResponse(201, createdUser, "User registered successfully"));
 });
 
 const handlerLogin = asyncHandler(async (req, res) => {
@@ -124,56 +125,69 @@ const handlerLogOut = asyncHandler(async (req, res) => {
 });
 
 const handlerUpdateProfile = asyncHandler(async (req, res) => {
-    const { firstName, lastName, userName, email, password } = req.body;
+  const { firstName, lastName, userName, email, phoneNumber } = req.body;
 
-    if (!firstName || !lastName || !userName || !email) {
-        throw new ApiError(400, "REQUIRED FIELD IS MISSING ( firstName, lastName, username, email )");
-    }
+  if (!firstName || !lastName || !userName || !email) {
+    throw new ApiError(400, "REQUIRED FIELD IS MISSING (firstName, lastName, userName, email)");
+  }
 
-    const currentLoggedInUser = req.user;
-    const user = await Auth.findById(currentLoggedInUser._id);
-    if (!user) {
-        throw new ApiError(404, "USER NOT FOUND");
-    }
+  // 2️⃣ Validate phone number with Numverify API
+//   const response = await axios.get(
+//     `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
+//   );
+//   const data = response.data;
 
-    if (password) {
-        const isPasswordMatch = await bcrypt.compare(password, user.password);
-        if (!isPasswordMatch) {
-            throw new ApiError(401, "INVALID PASSWORD");
-        }
-    }
+//   if (!data.valid || data.line_type !== "mobile") {
+//     throw new ApiError(400, "Enter a valid mobile number");
+//   }
 
-    let pictureUrl = user.picture;
-    if (req.file && req.file.path) {
-        const picture = await uploadOnCloudinary(req.file.path);
-        if (!picture) {
-            throw new ApiError(400, "CLOUDINARY UPLOAD FAILED");
-        }
-        pictureUrl = picture.url;
-    }
+  const currentLoggedInUser = req.user;
+  const user = await Auth.findById(currentLoggedInUser._id);
+  if (!user) {
+    throw new ApiError(404, "USER NOT FOUND");
+  }
 
-    const updatedUser = await Auth.findByIdAndUpdate(
-        currentLoggedInUser._id,
-        {
-            firstName,
-            lastName,
-            email,
-            userName,
-            picture: pictureUrl,
-        },
-        { new: true, runValidators: true }
-    ).select("-password");
+  // 1️⃣ Check if new email or username already exists
+  if (email !== user.email) {
+    const emailExist = await Auth.findOne({ email });
+    if (emailExist) throw new ApiError(400, "Email already in use");
+  }
+  if (userName !== user.userName) {
+    const usernameExist = await Auth.findOne({ userName });
+    if (usernameExist) throw new ApiError(400, "Username already in use");
+  }
 
-    return res.status(200).json(
-        new ApiResponse(200, updatedUser, "USER PROFILE UPDATED")
-    );
+  // 2️⃣ Handle picture update
+  let pictureUrl = user.picture;
+  if (req.file && req.file.path) {
+    const picture = await uploadOnCloudinary(req.file.path);
+    if (!picture) throw new ApiError(400, "CLOUDINARY UPLOAD FAILED");
+    pictureUrl = picture.url;
+  }
+
+  // 3️⃣ Update user
+  const updatedUser = await Auth.findByIdAndUpdate(
+    currentLoggedInUser._id,
+    {
+      firstName,
+      lastName,
+      email,
+      userName,
+      phoneNumber: phoneNumber || user.phoneNumber,
+      picture: pictureUrl,
+    },
+    { new: true, runValidators: true }
+  ).select("-password");
+
+  return res.status(200).json(
+    new ApiResponse(200, updatedUser, "USER PROFILE UPDATED")
+  );
 });
 
 const handlerUpdatePassword = asyncHandler(async (req, res) => {
     const { oldPassword, newPassword } = req.body;
-    if(!oldPassword || !newPassword)
-    {
-        throw new ApiError(400, "REQUIRED FIELD IS MISSING (oldPassword , newPassword)");   
+    if (!oldPassword || !newPassword) {
+        throw new ApiError(400, "REQUIRED FIELD IS MISSING (oldPassword , newPassword)");
     }
     const currentLoggedInUser = req.user;
     if (!currentLoggedInUser) {
@@ -209,8 +223,6 @@ const handlerUpdatePassword = asyncHandler(async (req, res) => {
         new ApiResponse(200, updatedUser, "Password updated successfully")
     );
 });
-
-
 
 
 export {
