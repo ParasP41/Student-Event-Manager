@@ -3,7 +3,8 @@ import {
     handlerSignUp,
     handlerLogin,
     handlerLogOut,
-    handlerUpdateProfile
+    handlerUpdateProfile,
+    handlerUpdatePassword
 } from "../controller/auth.controller.js";
 import { verifyToken } from '../middleware/verifyToken.middleware.js'
 import { upload } from '../middleware/multer.middleware.js'
@@ -14,5 +15,6 @@ authRouter.route('/signup').post(handlerSignUp);
 authRouter.route('/login').post(handlerLogin);
 authRouter.route('/logout').post(verifyToken, handlerLogOut);
 authRouter.route('/updateprofile').patch(verifyToken, upload.single('picture'), handlerUpdateProfile);
+authRouter.route('/updatepassord').patch(verifyToken, handlerUpdatePassword);
 
 export { authRouter }

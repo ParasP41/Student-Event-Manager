@@ -37,6 +37,12 @@ const authSchema = new mongoose.Schema(
             trim: true,
             required: true,
         },
+        phoneNumber: {
+            type: String,
+            trim: true,
+            unique: true,
+            sparse: true,
+        },
     },
     { timestamps: true }
 );

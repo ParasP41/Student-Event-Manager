@@ -169,10 +169,54 @@ const handlerUpdateProfile = asyncHandler(async (req, res) => {
     );
 });
 
+const handlerUpdatePassword = asyncHandler(async (req, res) => {
+    const { oldPassword, newPassword } = req.body;
+    if(!oldPassword || !newPassword)
+    {
+        throw new ApiError(400, "REQUIRED FIELD IS MISSING (oldPassword , newPassword)");   
+    }
+    const currentLoggedInUser = req.user;
+    if (!currentLoggedInUser) {
+        throw new ApiError(401, "Please login to continue");
+    }
+
+    const user = await Auth.findById(currentLoggedInUser._id);
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    const isPasswordMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isPasswordMatch) {
+        throw new ApiError(400, "Old password is incorrect");
+    }
+
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+        throw new ApiError(400, "New password cannot be the same as the old password");
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    const updatedUser = await Auth.findByIdAndUpdate(
+        user._id,
+        { $set: { password: hashedPassword } },
+        { new: true, runValidators: true }
+    ).select('-password');
+
+    return res.status(200).json(
+        new ApiResponse(200, updatedUser, "Password updated successfully")
+    );
+});
+
+
+
 
 export {
     handlerSignUp,
     handlerLogin,
     handlerLogOut,
-    handlerUpdateProfile
+    handlerUpdateProfile,
+    handlerUpdatePassword
 };

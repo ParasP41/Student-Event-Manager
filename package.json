@@ -28,6 +28,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
-    "prettier": "^3.6.2"
+    "otp-generator": "^4.0.1",
+    "prettier": "^3.6.2",
+    "twilio": "^5.10.2"
   }
 }
