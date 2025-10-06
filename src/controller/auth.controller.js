@@ -8,8 +8,8 @@ import { uploadOnCloudinary } from "../utils/Cloudinary.js";
 import axios from "axios";
 
 const options = {
-    httpOnly: true,
-    secure: true, // set true in production (HTTPS)
+  httpOnly: true,
+  secure: true, // set true in production (HTTPS)
 };
 
 const handlerSignUp = asyncHandler(async (req, res) => {
@@ -21,14 +21,14 @@ const handlerSignUp = asyncHandler(async (req, res) => {
   }
 
   // 2️⃣ Validate phone number with Numverify API
-//   const response = await axios.get(
-//     `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
-//   );
-//   const data = response.data;
+  //   const response = await axios.get(
+  //     `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
+  //   );
+  //   const data = response.data;
 
-//   if (!data.valid || data.line_type !== "mobile") {
-//     throw new ApiError(400, "Enter a valid mobile number");
-//   }
+  //   if (!data.valid || data.line_type !== "mobile") {
+  //     throw new ApiError(400, "Enter a valid mobile number");
+  //   }
 
   // 3️⃣ Check passwords match
   if (confirm_password !== password) {
@@ -73,55 +73,55 @@ const handlerSignUp = asyncHandler(async (req, res) => {
 
 const handlerLogin = asyncHandler(async (req, res) => {
 
-    const { email, password } = req.body;
-    if (!email || !password) {
-        throw new ApiError(400, "REQUIRED FIELD IS MISSING ( email, password )");
+  const { email, password } = req.body;
+  if (!email || !password) {
+    throw new ApiError(400, "REQUIRED FIELD IS MISSING ( email, password )");
+  }
+
+  const user = await Auth.findOne({ email });
+
+  if (!user) {
+    throw new ApiError(401, "INVALID EMAIL OR PASSWORD");
+  }
+
+  const isPasswordMatch = await bcrypt.compare(password, user.password);
+
+  if (!isPasswordMatch) {
+    throw new ApiError(401, "INVALID EMAIL OR PASSWORD");
+  }
+
+  const loggedUser = await Auth.findById(user._id).select("-password");
+
+  const token = jwt.sign(
+    {
+      _id: user._id,
+      email: user.email,
+      username: user.userName,
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY
     }
+  );
 
-    const user = await Auth.findOne({ email });
-
-    if (!user) {
-        throw new ApiError(401, "INVALID EMAIL OR PASSWORD");
-    }
-
-    const isPasswordMatch = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordMatch) {
-        throw new ApiError(401, "INVALID EMAIL OR PASSWORD");
-    }
-
-    const loggedUser = await Auth.findById(user._id).select("-password");
-
-    const token = jwt.sign(
-        {
-            _id: user._id,
-            email: user.email,
-            username: user.userName,
-        },
-        process.env.ACCESS_TOKEN_SECRET,
-        {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
-        }
-    );
-
-    return res.status(200)
-        .cookie("token", token, options)
-        .json(new ApiResponse(200, loggedUser, "USER LOGGED IN SUCCESSFULLY"));
+  return res.status(200)
+    .cookie("token", token, options)
+    .json(new ApiResponse(200, loggedUser, "USER LOGGED IN SUCCESSFULLY"));
 
 })
 
 const handlerLogOut = asyncHandler(async (req, res) => {
-    const loggedOutUser = req.user;
+  const loggedOutUser = req.user;
 
-    return res.status(200)
-        .cookie("token", "", options)
-        .json(
-            new ApiResponse(
-                200,
-                { loggedOutUser },
-                "USER LOGGED OUT SUCCESSFULLY"
-            )
-        );
+  return res.status(200)
+    .cookie("token", "", options)
+    .json(
+      new ApiResponse(
+        200,
+        { loggedOutUser },
+        "USER LOGGED OUT SUCCESSFULLY"
+      )
+    );
 });
 
 const handlerUpdateProfile = asyncHandler(async (req, res) => {
@@ -132,14 +132,14 @@ const handlerUpdateProfile = asyncHandler(async (req, res) => {
   }
 
   // 2️⃣ Validate phone number with Numverify API
-//   const response = await axios.get(
-//     `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
-//   );
-//   const data = response.data;
+  //   const response = await axios.get(
+  //     `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
+  //   );
+  //   const data = response.data;
 
-//   if (!data.valid || data.line_type !== "mobile") {
-//     throw new ApiError(400, "Enter a valid mobile number");
-//   }
+  //   if (!data.valid || data.line_type !== "mobile") {
+  //     throw new ApiError(400, "Enter a valid mobile number");
+  //   }
 
   const currentLoggedInUser = req.user;
   const user = await Auth.findById(currentLoggedInUser._id);
@@ -185,50 +185,144 @@ const handlerUpdateProfile = asyncHandler(async (req, res) => {
 });
 
 const handlerUpdatePassword = asyncHandler(async (req, res) => {
-    const { oldPassword, newPassword } = req.body;
-    if (!oldPassword || !newPassword) {
-        throw new ApiError(400, "REQUIRED FIELD IS MISSING (oldPassword , newPassword)");
-    }
-    const currentLoggedInUser = req.user;
-    if (!currentLoggedInUser) {
-        throw new ApiError(401, "Please login to continue");
-    }
+  const { oldPassword, newPassword } = req.body;
+  if (!oldPassword || !newPassword) {
+    throw new ApiError(400, "REQUIRED FIELD IS MISSING (oldPassword , newPassword)");
+  }
+  const currentLoggedInUser = req.user;
+  if (!currentLoggedInUser) {
+    throw new ApiError(401, "Please login to continue");
+  }
 
-    const user = await Auth.findById(currentLoggedInUser._id);
-    if (!user) {
-        throw new ApiError(404, "User not found");
-    }
+  const user = await Auth.findById(currentLoggedInUser._id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
 
-    const isPasswordMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isPasswordMatch) {
-        throw new ApiError(400, "Old password is incorrect");
-    }
+  const isPasswordMatch = await bcrypt.compare(oldPassword, user.password);
+  if (!isPasswordMatch) {
+    throw new ApiError(400, "Old password is incorrect");
+  }
 
 
-    const isSamePassword = await bcrypt.compare(newPassword, user.password);
-    if (isSamePassword) {
-        throw new ApiError(400, "New password cannot be the same as the old password");
-    }
+  const isSamePassword = await bcrypt.compare(newPassword, user.password);
+  if (isSamePassword) {
+    throw new ApiError(400, "New password cannot be the same as the old password");
+  }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    const updatedUser = await Auth.findByIdAndUpdate(
-        user._id,
-        { $set: { password: hashedPassword } },
-        { new: true, runValidators: true }
-    ).select('-password');
+  const updatedUser = await Auth.findByIdAndUpdate(
+    user._id,
+    { $set: { password: hashedPassword } },
+    { new: true, runValidators: true }
+  ).select('-password');
 
-    return res.status(200).json(
-        new ApiResponse(200, updatedUser, "Password updated successfully")
-    );
+  return res.status(200).json(
+    new ApiResponse(200, updatedUser, "Password updated successfully")
+  );
 });
 
+const handlerSentOTP = asyncHandler(async (req, res) => {
+  const currentLoggedInUser = req.user;
+
+  if (!currentLoggedInUser) {
+    throw new ApiError(401, "Please login to continue");
+  }
+
+  if (!currentLoggedInUser.phoneNumber) {
+    throw new ApiError(400, "Phone number not found in your profile. Please update your profile first.");
+  }
+
+  // Make sure phone number is in correct format: 10 digits, no leading 0 or +
+  let phone = currentLoggedInUser.phoneNumber.replace(/^(\+91|0)/, '');
+
+  try {
+    const sendOTP = await axios.post(
+      "https://api.msg91.com/api/v5/otp",
+      {
+        template_id: process.env.TEMPLATE_ID,
+        mobile: `91${phone}`,
+        otp_length: 6
+      },
+      {
+        headers: {
+          authkey: process.env.AUTHKEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const data = sendOTP.data;
+
+    if (data.type !== "success") {
+      throw new ApiError(400, "OTP failed to send: " + data.message);
+    }
+
+    return res.status(200).json(
+      new ApiResponse(200, data, "OTP sent successfully")
+    );
+
+  } catch (err) {
+    console.error("Error sending OTP:", err.sendOTP?.data || err.message);
+    throw new ApiError(500, "Something went wrong while sending OTP");
+  }
+});
+
+const handlerVerifyAndUpdatePassword = asyncHandler(async (req, res) => {
+  const { otp, newPassword } = req.body;
+
+  if (!otp || !newPassword) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  const currentLoggedInUser = req.user;
+
+  if (!currentLoggedInUser) {
+    throw new ApiError(401, "Please login to continue");
+  }
+
+  if (!currentLoggedInUser.phoneNumber) {
+    throw new ApiError(400, "Phone number not found in your profile. Please update your profile first.");
+  }
+
+  // Verify OTP
+  const VerifyOTP = await axios.post(
+    "https://api.msg91.com/api/v5/otp/verify",
+    {
+      mobile: `91${currentLoggedInUser.phoneNumber}`,
+      otp: otp,
+      authkey: process.env.AUTHKEY
+    }
+  );
+
+  if (VerifyOTP.data.type !== "success") {
+    throw new ApiError(400, "OTP is wrong or expired");
+  }
+
+  // Hash the new password
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+  // Update password in DB
+  const updatedUser = await Auth.findByIdAndUpdate(
+    currentLoggedInUser._id,
+    { $set: { password: hashedPassword } },
+    { new: true, runValidators: true }
+  ).select('-password');
+
+  return res.status(200).json(
+    new ApiResponse(200, updatedUser, "Password updated successfully")
+  );
+});
 
 export {
-    handlerSignUp,
-    handlerLogin,
-    handlerLogOut,
-    handlerUpdateProfile,
-    handlerUpdatePassword
+  handlerSignUp,
+  handlerLogin,
+  handlerLogOut,
+  handlerUpdateProfile,
+  handlerUpdatePassword,
+  handlerSentOTP,
+  handlerVerifyAndUpdatePassword
 };

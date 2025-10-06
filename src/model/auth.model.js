@@ -43,6 +43,14 @@ const authSchema = new mongoose.Schema(
             unique: true,
             sparse: true,
         },
+
+        
+        role: {
+            type: String,
+            enum: ['user', 'owner'],
+            default: 'user',
+        },
+
     },
     { timestamps: true }
 );
