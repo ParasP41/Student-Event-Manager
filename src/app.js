@@ -14,7 +14,7 @@ app.use(cors({
 
 
 //Auth Route
-import { authRouter } from './routes/auth.Route.js';
+import { authRouter } from './routes/auth.route.js';
 app.use(`${process.env.API_ROUTE}/auth`, authRouter);
 
 
