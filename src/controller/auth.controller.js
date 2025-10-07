@@ -9,7 +9,7 @@ import axios from "axios";
 
 const options = {
   httpOnly: true,
-  secure: true, // set true in production (HTTPS)
+  secure: true, 
 };
 
 const handlerSignUp = asyncHandler(async (req, res) => {
@@ -72,26 +72,37 @@ const handlerSignUp = asyncHandler(async (req, res) => {
 });
 
 const handlerLogin = asyncHandler(async (req, res) => {
+  const { email, password, ownerCode } = req.body;
 
-  const { email, password } = req.body;
   if (!email || !password) {
-    throw new ApiError(400, "REQUIRED FIELD IS MISSING ( email, password )");
+    throw new ApiError(400, "REQUIRED FIELD IS MISSING (email, password)");
   }
 
+  // Find user
   const user = await Auth.findOne({ email });
-
   if (!user) {
     throw new ApiError(401, "INVALID EMAIL OR PASSWORD");
   }
 
-  const isPasswordMatch = await bcrypt.compare(password, user.password);
+  // If user is an owner, require ownerCode
+  if (user.role === "owner") {
+    if (!ownerCode) {
+      throw new ApiError(400, "OWNER CODE IS REQUIRED FOR OWNER LOGIN");
+    }
+    if (user.ownerCode !== ownerCode) {
+      throw new ApiError(401, "INVALID OWNER CODE");
+    }
+  }
 
+  // Check password
+  const isPasswordMatch = await bcrypt.compare(password, user.password);
   if (!isPasswordMatch) {
     throw new ApiError(401, "INVALID EMAIL OR PASSWORD");
   }
 
   const loggedUser = await Auth.findById(user._id).select("-password");
 
+  // Generate JWT token
   const token = jwt.sign(
     {
       _id: user._id,
@@ -99,16 +110,13 @@ const handlerLogin = asyncHandler(async (req, res) => {
       username: user.userName,
     },
     process.env.ACCESS_TOKEN_SECRET,
-    {
-      expiresIn: process.env.ACCESS_TOKEN_EXPIRY
-    }
+    { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
   );
 
   return res.status(200)
     .cookie("token", token, options)
     .json(new ApiResponse(200, loggedUser, "USER LOGGED IN SUCCESSFULLY"));
-
-})
+});
 
 const handlerLogOut = asyncHandler(async (req, res) => {
   const loggedOutUser = req.user;

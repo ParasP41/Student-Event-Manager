@@ -43,12 +43,14 @@ const authSchema = new mongoose.Schema(
             unique: true,
             sparse: true,
         },
-
-        
         role: {
             type: String,
             enum: ['user', 'owner'],
             default: 'user',
+        },
+        ownerCode: {
+            type: String,
+            default: null, 
         },
 
     },

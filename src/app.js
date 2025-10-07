@@ -18,5 +18,8 @@ import { authRouter } from './routes/auth.route.js';
 app.use(`${process.env.API_ROUTE}/auth`, authRouter);
 
 
+//Role Route
+import { roleRouter } from './routes/role.route.js';
+app.use(`${process.env.API_ROUTE}/role`, roleRouter);
 
 export { app };
