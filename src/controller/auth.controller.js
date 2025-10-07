@@ -6,11 +6,7 @@ import { ApiResponse } from "../utils/APIResponce.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
 import axios from "axios";
-
-const options = {
-  httpOnly: true,
-  secure: true, 
-};
+import { options } from "../config.js";
 
 const handlerSignUp = asyncHandler(async (req, res) => {
   const { firstName, lastName, userName, email, password, confirm_password, phoneNumber } = req.body;
@@ -132,22 +128,56 @@ const handlerLogOut = asyncHandler(async (req, res) => {
     );
 });
 
+const handlerDeleteAccount = asyncHandler(async (req, res) => {
+  const { password } = req.body;
+
+  if (!password) {
+    throw new ApiError(400, "Password is required");
+  }
+
+  const currentLoggedInUser = req.user;
+
+  if (!currentLoggedInUser) {
+    throw new ApiError(401, "Please login to continue");
+  }
+
+  // Find the user in DB
+  const user = await Auth.findById(currentLoggedInUser._id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Compare passwords
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    throw new ApiError(401, "Incorrect password");
+  }
+
+  // Delete user account
+  await Auth.findByIdAndDelete(currentLoggedInUser._id);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, null, "Account deleted successfully"));
+})
+
 const handlerUpdateProfile = asyncHandler(async (req, res) => {
-  const { firstName, lastName, userName, email, phoneNumber } = req.body;
+  const { firstName, lastName, userName, email, phoneNumber, password } = req.body;
 
   if (!firstName || !lastName || !userName || !email) {
     throw new ApiError(400, "REQUIRED FIELD IS MISSING (firstName, lastName, userName, email)");
   }
 
-  // 2️⃣ Validate phone number with Numverify API
-  //   const response = await axios.get(
-  //     `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
-  //   );
-  //   const data = response.data;
+    // 2️⃣ Validate phone number with Numverify API
+    const response = await axios.get(
+      `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
+    );
+    const data = response.data;
 
-  //   if (!data.valid || data.line_type !== "mobile") {
-  //     throw new ApiError(400, "Enter a valid mobile number");
-  //   }
+    if (!data.valid || data.line_type !== "mobile") {
+      throw new ApiError(400, "Enter a valid mobile number");
+    }
+
 
   const currentLoggedInUser = req.user;
   const user = await Auth.findById(currentLoggedInUser._id);
@@ -155,17 +185,37 @@ const handlerUpdateProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "USER NOT FOUND");
   }
 
-  // 1️⃣ Check if new email or username already exists
-  if (email !== user.email) {
-    const emailExist = await Auth.findOne({ email });
-    if (emailExist) throw new ApiError(400, "Email already in use");
-  }
-  if (userName !== user.userName) {
-    const usernameExist = await Auth.findOne({ userName });
-    if (usernameExist) throw new ApiError(400, "Username already in use");
+  let requirePasswordVerification = false;
+
+  // ✅ If user is changing email or username, ask for password
+  if (email !== user.email || userName !== user.userName) {
+    requirePasswordVerification = true;
   }
 
-  // 2️⃣ Handle picture update
+  if (requirePasswordVerification) {
+    if (!password) {
+      throw new ApiError(400, "Password is required to change email or username");
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      throw new ApiError(401, "Incorrect password");
+    }
+
+    // Check for duplicate email
+    if (email !== user.email) {
+      const emailExist = await Auth.findOne({ email });
+      if (emailExist) throw new ApiError(400, "Email already in use");
+    }
+
+    // Check for duplicate username
+    if (userName !== user.userName) {
+      const usernameExist = await Auth.findOne({ userName });
+      if (usernameExist) throw new ApiError(400, "Username already in use");
+    }
+  }
+
+  // ✅ Handle picture update
   let pictureUrl = user.picture;
   if (req.file && req.file.path) {
     const picture = await uploadOnCloudinary(req.file.path);
@@ -173,7 +223,7 @@ const handlerUpdateProfile = asyncHandler(async (req, res) => {
     pictureUrl = picture.url;
   }
 
-  // 3️⃣ Update user
+  // ✅ Update user details
   const updatedUser = await Auth.findByIdAndUpdate(
     currentLoggedInUser._id,
     {
@@ -187,9 +237,9 @@ const handlerUpdateProfile = asyncHandler(async (req, res) => {
     { new: true, runValidators: true }
   ).select("-password");
 
-  return res.status(200).json(
-    new ApiResponse(200, updatedUser, "USER PROFILE UPDATED")
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, updatedUser, "USER PROFILE UPDATED SUCCESSFULLY"));
 });
 
 const handlerUpdatePassword = asyncHandler(async (req, res) => {
@@ -329,6 +379,7 @@ export {
   handlerSignUp,
   handlerLogin,
   handlerLogOut,
+  handlerDeleteAccount,
   handlerUpdateProfile,
   handlerUpdatePassword,
   handlerSentOTP,
