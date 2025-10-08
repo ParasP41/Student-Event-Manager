@@ -52,7 +52,7 @@ const handlerAddEvent = asyncHandler(async (req, res) => {
     };
 
     for (const [key, value] of Object.entries(requiredFields)) {
-        if (!value || value.trim() === "") {
+        if (!value || (typeof value === "string" && value.trim() === "")) {
             throw new ApiError(400, `Missing required field: ${key}`);
         }
     }
@@ -115,5 +115,50 @@ const handlerAddEvent = asyncHandler(async (req, res) => {
 });
 
 
+const handlerDeleteEvent = asyncHandler(async (req, res) => {
+    const currentUser = req.user;
+    const eventId = req.params.id;
+    // 🔐 Verify logged-in user
+    if (!currentUser) {
+        throw new ApiError(401, "Please login to continue");
+    }
 
-export { handlerAddEvent };
+    // 🧾 Verify role
+    if (currentUser.role !== "owner") {
+        throw new ApiError(403, "Only owners can delete events");
+    }
+
+    // ⚠️ Check if event exists
+    const event = await OwnerEvent.findById(eventId);
+    if (!event) {
+        throw new ApiError(404, "Event not found");
+    }
+
+    // 🔒 Ensure owner can only delete their own events
+    if (event.ownerId.toString() !== currentUser._id.toString()) {
+        throw new ApiError(403, "You can only delete your own events");
+    }
+
+    if (!currentUser.createdEvents.map(id => id.toString()).includes(event._id.toString())) {
+        throw new ApiError(403, "You can only delete events that you created");
+    }
+
+    // 🗑 Delete event
+    await OwnerEvent.findByIdAndDelete(eventId);
+
+    // 🔄 Remove event ID from owner's createdEvents array
+    await Auth.findByIdAndUpdate(currentUser._id, {
+        $pull: { createdEvents: eventId }
+    });
+
+    // ✅ Respond
+    return res.status(200).json(
+        new ApiResponse(200, null, "Event deleted successfully")
+    );
+});
+
+const handlerUpdateEvent = asyncHandler(async (req, res) => {
+    res.send("working");
+});
+
+export { handlerAddEvent, handlerDeleteEvent, handlerUpdateEvent };
