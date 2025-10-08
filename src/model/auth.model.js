@@ -50,8 +50,15 @@ const authSchema = new mongoose.Schema(
         },
         ownerCode: {
             type: String,
-            default: null, 
+            default: null,
         },
+        createdEvents: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "OwnerEvent",
+                default:[]
+            },
+        ],
 
     },
     { timestamps: true }

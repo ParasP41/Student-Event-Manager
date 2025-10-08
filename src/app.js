@@ -22,7 +22,10 @@ app.use(`${process.env.API_ROUTE}/auth`, authRouter);
 import { roleRouter } from './routes/role.route.js';
 app.use(`${process.env.API_ROUTE}/role`, roleRouter);
 
-//Event Route
-import { eventRouter } from './routes/event.route.js'
-app.use(`${process.env.API_ROUTE}/event`, eventRouter);
+//ownerEvent Route
+import { ownerEvent } from './routes/ownerEvent.route.js';
+app.use(`${process.env.API_ROUTE}/ownerevent`, ownerEvent);
+
+
+
 export { app };

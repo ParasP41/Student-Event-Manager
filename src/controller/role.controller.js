@@ -25,12 +25,11 @@ const handlerOwnerRoleSwitch = asyncHandler(async (req, res) => {
 
   // Generate hashed ownership code
   const rawOwnerCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const hashedOwnerCode = await bcrypt.hash(rawOwnerCode, 10);
 
   // Update user role & ownerCode
   const updatedUser = await Auth.findByIdAndUpdate(
     currentUser._id,
-    { $set: { ownerCode: hashedOwnerCode, role: "owner" } },
+    { $set: { ownerCode: rawOwnerCode, role: "owner" } },
     { new: true, runValidators: true }
   ).select("-password");
 

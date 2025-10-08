@@ -156,9 +156,15 @@ const handlerDeleteAccount = asyncHandler(async (req, res) => {
   // Delete user account
   await Auth.findByIdAndDelete(currentLoggedInUser._id);
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, null, "Account deleted successfully"));
+  return res.status(200)
+    .cookie("token", "", options)
+    .json(
+      new ApiResponse(
+        200,
+        null,
+        "Account deleted successfully"
+      )
+    );
 })
 
 const handlerUpdateProfile = asyncHandler(async (req, res) => {
