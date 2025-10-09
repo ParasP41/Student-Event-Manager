@@ -7,6 +7,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
 import axios from "axios";
 import { options } from "../config.js";
+import { verifyNumber } from "../utils/verifyNumber.js";
 
 const handlerSignUp = asyncHandler(async (req, res) => {
   const { firstName, lastName, userName, email, password, confirm_password, phoneNumber } = req.body;
@@ -25,6 +26,8 @@ const handlerSignUp = asyncHandler(async (req, res) => {
   //   if (!data.valid || data.line_type !== "mobile") {
   //     throw new ApiError(400, "Enter a valid mobile number");
   //   }
+
+  await verifyNumber(phoneNumber);
 
   // 3️⃣ Check passwords match
   if (confirm_password !== password) {
@@ -170,19 +173,19 @@ const handlerDeleteAccount = asyncHandler(async (req, res) => {
 const handlerUpdateProfile = asyncHandler(async (req, res) => {
   const { firstName, lastName, userName, email, phoneNumber, password } = req.body;
 
-  if (!firstName || !lastName || !userName || !email) {
-    throw new ApiError(400, "REQUIRED FIELD IS MISSING (firstName, lastName, userName, email)");
+  // if (!firstName || !lastName || !userName || !email) {
+  //   throw new ApiError(400, "REQUIRED FIELD IS MISSING (firstName, lastName, userName, email)");
+  // }
+
+  // 2️⃣ Validate phone number with Numverify API
+  const response = await axios.get(
+    `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
+  );
+  const data = response.data;
+
+  if (!data.valid || data.line_type !== "mobile") {
+    throw new ApiError(400, "Enter a valid mobile number");
   }
-
-    // 2️⃣ Validate phone number with Numverify API
-    const response = await axios.get(
-      `https://apilayer.net/api/validate?access_key=${process.env.NUMVERIFY_API_KEY}&number=${phoneNumber}`
-    );
-    const data = response.data;
-
-    if (!data.valid || data.line_type !== "mobile") {
-      throw new ApiError(400, "Enter a valid mobile number");
-    }
 
 
   const currentLoggedInUser = req.user;
@@ -191,10 +194,12 @@ const handlerUpdateProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "USER NOT FOUND");
   }
 
+
+
   let requirePasswordVerification = false;
 
   // ✅ If user is changing email or username, ask for password
-  if (email !== user.email || userName !== user.userName) {
+  if (email !== user.email || userName !== user.userName || phoneNumber !== user.phoneNumber) {
     requirePasswordVerification = true;
   }
 
@@ -219,6 +224,14 @@ const handlerUpdateProfile = asyncHandler(async (req, res) => {
       const usernameExist = await Auth.findOne({ userName });
       if (usernameExist) throw new ApiError(400, "Username already in use");
     }
+
+    if (phoneNumber !== user.phoneNumber) {
+      const phoneNumberExist = await Auth.findOne({ phoneNumber });
+       if (phoneNumberExist) throw new ApiError(400, "Phone Number already in use");
+       await verifyNumber(phoneNumber);
+    }
+
+
   }
 
   // ✅ Handle picture update
