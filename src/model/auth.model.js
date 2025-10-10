@@ -56,8 +56,15 @@ const authSchema = new mongoose.Schema(
             {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "OwnerEvent",
-                default:[]
+                default: []
             },
+        ],
+        pins: [
+            {
+                 type: mongoose.Schema.Types.ObjectId,
+                ref: "OwnerEvent",
+                default: []
+            }
         ],
 
     },

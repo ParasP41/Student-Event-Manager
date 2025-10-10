@@ -91,7 +91,14 @@ const ownerEventSchema = new mongoose.Schema(
                 trim: true,
             },
         ],
+        likes: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User"
+            }
+        ],
     },
+
     { timestamps: true }
 );
 
