@@ -3,6 +3,7 @@ import { ApiResponse } from "../utils/APIResponce.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { OwnerEvent } from "../model/ownerEvent.model.js";
 import { Auth } from "../model/auth.model.js";
+import { Comment } from "../model/comment.model.js";
 
 const handlerFilterInput = asyncHandler(async (req, res) => {
     const currentUser = req.user;
@@ -162,6 +163,127 @@ const handlerLike = asyncHandler(async (req, res) => {
     }
 });
 
+const handlerAddComment = asyncHandler(async (req, res) => {
+    const currentUser = req.user;
+    const eventId = req.params.id;
+    const { text } = req.body; // ✅ Correct way to extract text from body
+
+    // Authentication check
+    if (!currentUser) throw new ApiError(401, "Please login to continue");
+    if (currentUser.role !== "user") throw new ApiError(403, "Only users can add comments");
+
+    // Validation
+    if (!eventId) throw new ApiError(400, "Event ID is required");
+    if (!text || typeof text !== "string" || text.trim() === "") {
+        throw new ApiError(400, "Valid comment text is required");
+    }
+
+    // Check if the event exists
+    const event = await OwnerEvent.findById(eventId);
+    if (!event) throw new ApiError(404, "Event not found");
+
+    // Create a new comment
+    const comment = await Comment.create({
+        eventId,
+        userId: currentUser._id,
+        text: text.trim(),
+    });
+
+    return res.status(201).json(
+        new ApiResponse(201, comment, "Comment added successfully")
+    );
+});
+
+const handlerFindEventComment = asyncHandler(async (req, res) => {
+    const currentUser = req.user;
+    const eventId = req.params.id;
+
+    // Authentication check
+    if (!currentUser) throw new ApiError(401, "Please login to continue");
+
+    // Validate eventId
+    if (!eventId) throw new ApiError(400, "Event ID is required");
+
+    // Check if event exists
+    const event = await OwnerEvent.findById(eventId);
+    if (!event) throw new ApiError(404, "Event not found");
+
+    // Find all comments for the event
+    const comments = await Comment.find({ eventId })
+        .populate("userId", "name email picture") // show basic user info
+        .sort({ createdAt: -1 }); // latest comments first
+
+    if (!comments || comments.length === 0) {
+        return res
+            .status(404)
+            .json(new ApiResponse(404, [], "No comments found for this event"));
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, comments, "Comments fetched successfully"));
+});
+
+const handlerDeleteComment = asyncHandler(async (req, res) => {
+    const currentUser = req.user;
+    const commentId = req.params.id;
+
+    // Authentication check
+    if (!currentUser) throw new ApiError(401, "Please login to continue");
+
+    // Validate commentId
+    if (!commentId) throw new ApiError(400, "Comment ID is required");
+
+    // Find the comment
+    const comment = await Comment.findById(commentId);
+    if (!comment) throw new ApiError(404, "Comment not found");
+
+    // Only the user who created the comment can delete it
+    if (comment.userId.toString() !== currentUser._id.toString()) {
+        throw new ApiError(403, "You can only delete your own comments");
+    }
+
+    // Delete the comment
+    await Comment.findByIdAndDelete(commentId);
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, null, "Comment deleted successfully"));
+});
+
+const handlerEditComment = asyncHandler(async (req, res) => {
+    const currentUser = req.user;
+    const commentId = req.params.id;
+    const { text } = req.body;
+
+    // Authentication check
+    if (!currentUser) throw new ApiError(401, "Please login to continue");
+
+    // Validate input
+    if (!commentId) throw new ApiError(400, "Comment ID is required");
+    if (!text || typeof text !== "string" || text.trim() === "") {
+        throw new ApiError(400, "Valid comment text is required");
+    }
+
+    // Find the comment
+    const comment = await Comment.findById(commentId);
+    if (!comment) throw new ApiError(404, "Comment not found");
+
+    // Only owner can edit
+    if (comment.userId.toString() !== currentUser._id.toString()) {
+        throw new ApiError(403, "You can only edit your own comments");
+    }
+
+    // Update the comment
+    comment.text = text.trim();
+    comment.isEdited = true; // optional, you can add this field in your schema if desired
+    await comment.save();
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, comment, "Comment updated successfully"));
+});
+
 
 export {
     handlerAllEvents,
@@ -169,5 +291,10 @@ export {
     handlerFilterInput,
     handlerPins,
     handlerAllPinedEvents,
-    handlerLike
+    handlerLike,
+    handlerAddComment,
+    handlerFindEventComment,
+    handlerDeleteComment,
+    handlerEditComment,
+
 }
